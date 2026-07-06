@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PT-GMF · Horas Voadas</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap');
+:root{
+  --bg:#080E1A;--bg2:#0D1525;--bg3:#121D30;--card:#162035;
+  --border:#1E3050;--border2:#263D60;
+  --accent:#3B9EFF;--accent2:#0070E0;
+  --gold:#F5A623;--green:#2ECC71;--red:#E74C3C;
+  --text:#D8E8F8;--muted:#6A8CAA;--muted2:#3D5A78;
+  --jose:#3B9EFF;--silvana:#A855F7;--bruna:#F59E0B;--oficina:#2ECC71;
+  --r:10px;--rl:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+
+/* SYNC BAR */
+.sync-bar{background:#0a1a10;border-bottom:1px solid #1a3a20;padding:5px 2rem;display:flex;align-items:center;gap:10px;font-size:.72rem;}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#888;flex-shrink:0;transition:background .3s;}
+.sync-dot.ok{background:var(--green);box-shadow:0 0 6px var(--green);}
+.sync-dot.err{background:var(--red);}
+.sync-dot.loading{background:var(--gold);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.sync-text{color:var(--muted);}
+.sync-text strong{color:var(--text);}
+
+/* HEADER */
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:stretch;justify-content:space-between;gap:1rem;flex-wrap:wrap;}
+.header-brand{display:flex;align-items:center;gap:16px;padding:1.2rem 0;}
+.tail-badge{background:var(--accent2);border-radius:8px;padding:8px 14px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.4rem;letter-spacing:.1em;color:#fff;line-height:1;}
+.brand-info h1{font-family:'Barlow Condensed',sans-serif;font-size:1.15rem;font-weight:700;letter-spacing:.05em;color:#fff;line-height:1;}
+.brand-info p{font-size:.72rem;color:var(--muted);margin-top:4px;letter-spacing:.06em;text-transform:uppercase;}
+.header-nav{display:flex;align-items:center;gap:4px;}
+.nav-tab{padding:0 18px;height:100%;display:flex;align-items:center;gap:7px;font-size:.82rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;font-family:'Barlow',sans-serif;}
+.nav-tab:hover{color:var(--text);}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.header-actions{display:flex;align-items:center;gap:8px;padding:1rem 0;flex-wrap:wrap;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:var(--r);border:none;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s;font-family:'Barlow',sans-serif;letter-spacing:.03em;white-space:nowrap;}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:#5AAFFF;}
+.btn-success{background:var(--green);color:#fff;}
+.btn-success:hover{background:#27AE60;}
+.btn-gold{background:var(--gold);color:#1a1000;}
+.btn-gold:hover{background:#F8BC45;}
+.btn-danger{background:#c0392b;color:#fff;}
+.btn-danger:hover{background:#e74c3c;}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border2);}
+.btn-ghost:hover{color:var(--text);border-color:var(--muted);}
+.btn-sm{padding:5px 10px;font-size:.76rem;}
+.btn-icon{padding:6px 9px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .15s;font-size:.8rem;font-family:'Barlow',sans-serif;}
+.btn-icon:hover{border-color:var(--red);color:var(--red);}
+
+.page{display:none;}
+.page.active{display:block;}
+
+/* PERIOD BANNER */
+.period-banner{background:linear-gradient(90deg,#091828 0%,#0D2040 50%,#091828 100%);border-bottom:1px solid var(--border);padding:.7rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.period-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);}
+.period-value{font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:600;color:var(--accent);letter-spacing:.04em;}
+.period-pilots{font-size:.75rem;color:var(--muted);display:flex;align-items:center;gap:14px;}
+.pilot-tag{display:flex;align-items:center;gap:5px;color:var(--text);}
+.pilot-tag::before{content:'●';color:var(--accent);font-size:8px;}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:1.5rem 2rem 0;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.2rem;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--ac,var(--accent));border-radius:var(--rl) var(--rl) 0 0;}
+.stat-card.jose{--ac:var(--jose);}
+.stat-card.silvana{--ac:var(--silvana);}
+.stat-card.bruna{--ac:var(--bruna);}
+.stat-card.total{--ac:var(--muted2);}
+.stat-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:8px;}
+.stat-name{font-size:.85rem;font-weight:600;margin-bottom:6px;}
+.stat-name.jose{color:var(--jose);}
+.stat-name.silvana{color:var(--silvana);}
+.stat-name.bruna{color:var(--bruna);}
+.stat-name.total{color:var(--muted);}
+.stat-hours{font-family:'Barlow Condensed',sans-serif;font-size:1.8rem;font-weight:700;color:#fff;line-height:1;}
+.stat-pct{font-size:.78rem;color:var(--muted);margin-top:5px;}
+.stat-pct strong{font-size:1.1rem;font-weight:700;color:var(--ac,var(--accent));}
+
+/* PCT BAR */
+.pct-bar-section{margin:1.2rem 2rem 0;background:var(--card);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.4rem;}
+.pct-bar-title{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:12px;}
+.pct-bar-track{height:10px;background:var(--bg3);border-radius:99px;overflow:hidden;display:flex;margin-bottom:10px;}
+.pct-bar-seg{height:100%;transition:width .6s ease;}
+.pct-bar-legend{display:flex;gap:20px;flex-wrap:wrap;}
+.pct-legend-item{display:flex;align-items:center;gap:7px;font-size:.78rem;color:var(--muted);}
+.pct-legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+.pct-legend-item strong{color:var(--text);font-weight:600;}
+
+/* FORM */
+.form-section{margin:1.2rem 2rem 0;background:var(--card);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;}
+.form-header{background:var(--bg3);border-bottom:1px solid var(--border);padding:.9rem 1.4rem;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.form-header-title{font-family:'Barlow Condensed',sans-serif;font-size:.95rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);}
+.form-body{padding:1.4rem;}
+.field-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:12px;}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600;}
+input,select,textarea{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px 11px;font-size:.86rem;font-family:'Barlow',sans-serif;transition:border-color .15s,box-shadow .15s;width:100%;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,158,255,.15);}
+select option{background:var(--bg2);}
+textarea{resize:vertical;min-height:52px;}
+
+/* OPERATOR BTNS */
+.op-select-group{display:flex;gap:8px;flex-wrap:wrap;}
+.op-btn{flex:1;min-width:100px;padding:9px 10px;border-radius:8px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--muted);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s;font-family:'Barlow',sans-serif;text-align:center;}
+.op-btn:hover{border-color:var(--muted);color:var(--text);}
+.op-btn.sel-jose{border-color:var(--jose);background:rgba(59,158,255,.12);color:var(--jose);}
+.op-btn.sel-silvana{border-color:var(--silvana);background:rgba(168,85,247,.12);color:var(--silvana);}
+.op-btn.sel-bruna{border-color:var(--bruna);background:rgba(245,158,11,.12);color:var(--bruna);}
+.op-btn.sel-oficina{border-color:var(--oficina);background:rgba(46,204,113,.12);color:var(--oficina);}
+
+/* LEGS */
+.legs-section{margin-top:14px;}
+.legs-title{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:10px;}
+.legs-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+.leg-row{display:grid;grid-template-columns:60px 1fr 24px 1fr 90px 30px;gap:8px;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;}
+.leg-num{font-size:.68rem;color:var(--muted2);font-weight:700;}
+.leg-arrow{font-size:.75rem;color:var(--muted2);text-align:center;}
+.leg-icao{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.leg-dur{font-size:.82rem;color:var(--gold);font-weight:600;}
+.leg-remove{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.8rem;transition:all .15s;font-family:'Barlow',sans-serif;}
+.leg-remove:hover{border-color:var(--red);color:var(--red);}
+.add-leg-row{display:grid;grid-template-columns:1fr 1fr 110px auto;gap:8px;align-items:end;background:var(--bg);border:1px dashed var(--border2);border-radius:8px;padding:8px 10px;}
+
+/* TABLE */
+.table-section{margin:1.2rem 2rem 0;}
+.table-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:10px;}
+.table-title{font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text);display:flex;align-items:center;gap:10px;}
+.badge{background:var(--bg3);border:1px solid var(--border);color:var(--accent);font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:20px;font-family:'Barlow',sans-serif;}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;}
+.filter-row input{width:180px;padding:7px 11px;font-size:.82rem;}
+.filter-row select{width:160px;padding:7px 11px;font-size:.82rem;}
+.table-wrap{border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;min-width:820px;}
+thead{background:var(--bg3);}
+th{padding:10px 14px;font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;font-weight:600;}
+tbody tr:hover{filter:brightness(1.1);}
+td{padding:10px 14px;font-size:.84rem;vertical-align:top;}
+.op-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;letter-spacing:.03em;white-space:nowrap;}
+.op-pill.jose{background:rgba(59,158,255,.15);color:var(--jose);border:1px solid rgba(59,158,255,.3);}
+.op-pill.silvana{background:rgba(168,85,247,.15);color:var(--silvana);border:1px solid rgba(168,85,247,.3);}
+.op-pill.bruna{background:rgba(245,158,11,.15);color:var(--bruna);border:1px solid rgba(245,158,11,.3);}
+.op-pill.oficina{background:rgba(46,204,113,.15);color:var(--oficina);border:1px solid rgba(46,204,113,.3);}
+.legs-cell{display:flex;flex-direction:column;gap:4px;}
+.leg-chip{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;color:var(--text);white-space:nowrap;}
+.leg-chip .from,.leg-chip .to{font-weight:700;font-family:'Barlow Condensed',sans-serif;font-size:.88rem;}
+.leg-chip .dur{color:var(--gold);font-size:.72rem;font-weight:600;margin-left:3px;}
+.leg-chip .arr{color:var(--muted2);font-size:.72rem;}
+.total-hours-cell{font-family:'Barlow Condensed',sans-serif;font-size:1.05rem;font-weight:700;color:var(--gold);}
+.obs-cell{font-size:.78rem;color:var(--muted);max-width:160px;}
+.empty-state{padding:3.5rem;text-align:center;color:var(--muted2);}
+.empty-icon{font-size:2.5rem;margin-bottom:10px;}
+.empty-state p{font-size:.88rem;line-height:1.6;}
+
+/* RELATORIO PAGE */
+.relatorio-header{padding:2rem 2rem 1rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;}
+.relatorio-header h2{font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;}
+.relatorio-header p{font-size:.8rem;color:var(--muted);margin-top:4px;}
+.op-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;padding:0 2rem 1.5rem;}
+.op-card{background:var(--card);border:1px solid var(--border);border-radius:var(--rl);padding:1.4rem;position:relative;overflow:hidden;}
+.op-card::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:4px;background:var(--oc);}
+.op-card.jose{--oc:var(--jose);}
+.op-card.silvana{--oc:var(--silvana);}
+.op-card.bruna{--oc:var(--bruna);}
+.op-card-name{font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:.05em;color:var(--oc);margin-bottom:12px;}
+.op-card-stat{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border);}
+.op-card-stat:last-of-type{border-bottom:none;}
+.op-card-stat .lbl{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;}
+.op-card-stat .val{font-size:.95rem;font-weight:700;color:var(--text);font-family:'Barlow Condensed',sans-serif;}
+.op-card-pct{margin-top:12px;background:var(--bg3);border-radius:99px;height:8px;overflow:hidden;}
+.op-card-pct-fill{height:100%;border-radius:99px;transition:width .6s ease;}
+.summary-table-wrap{margin:0 2rem 2rem;border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border2);border-radius:var(--rl);padding:2rem;width:100%;max-width:440px;margin:1rem;}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-size:1.2rem;font-weight:700;letter-spacing:.05em;color:#fff;margin-bottom:6px;}
+.modal-sub{font-size:.78rem;color:var(--muted);margin-bottom:1.4rem;line-height:1.5;}
+.modal-step{display:none;}
+.modal-step.active{display:block;}
+.modal-field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.modal-field label{font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600;}
+.modal-actions{display:flex;gap:8px;margin-top:1.2rem;justify-content:flex-end;}
+.modal-warn{background:rgba(192,57,43,.15);border:1px solid rgba(192,57,43,.4);border-radius:8px;padding:10px 14px;font-size:.8rem;color:#e87a6e;margin-bottom:14px;line-height:1.5;}
+.modal-err{font-size:.78rem;color:var(--red);margin-top:6px;display:none;}
+.modal-err.show{display:block;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;padding:11px 18px;border-radius:var(--r);font-weight:600;font-size:.86rem;z-index:9999;transform:translateY(60px);opacity:0;transition:all .25s ease;display:flex;align-items:center;gap:8px;pointer-events:none;}
+.toast.ok{background:var(--green);color:#fff;}
+.toast.err{background:var(--red);color:#fff;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+footer{text-align:center;padding:1.5rem;font-size:.72rem;color:var(--muted2);border-top:1px solid var(--border);margin-top:2rem;letter-spacing:.05em;}
+
+@media(max-width:640px){
+  header,.period-banner,.stats-grid,.form-section,.table-section,.pct-bar-section{padding-left:1rem;padding-right:1rem;}
+  .stats-grid{padding:1rem 1rem 0;}
+  .add-leg-row{grid-template-columns:1fr 1fr;}
+  .sync-bar{padding:5px 1rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- SYNC STATUS BAR -->
+<div class="sync-bar">
+  <div class="sync-dot loading" id="sync-dot"></div>
+  <span class="sync-text" id="sync-text">Conectando ao Firebase...</span>
+</div>
+
+<header>
+  <div class="header-brand">
+    <div class="tail-badge">PT-GMF</div>
+    <div class="brand-info">
+      <h1>Relatório de Horas Voadas</h1>
+      <p>Beechcraft BE9L King Air · <span id="header-periodo">21/11/2025 – 21/11/2026</span></p>
+    </div>
+  </div>
+  <nav class="header-nav">
+    <button class="nav-tab active" onclick="showPage('lancamentos',this)">✈ Lançamentos</button>
+    <button class="nav-tab" onclick="showPage('relatorio',this)">📊 Relatório</button>
+  </nav>
+  <div class="header-actions">
+    <button class="btn btn-success btn-sm" onclick="exportarExcel()">↓ Excel</button>
+    <button class="btn btn-gold btn-sm" onclick="exportarPDF()">↓ PDF</button>
+    <button class="btn btn-danger btn-sm" onclick="abrirNovoCiclo()">⟳ Novo Ciclo</button>
+  </div>
+</header>
+
+<div class="period-banner">
+  <div>
+    <div class="period-label">Período de Manutenção</div>
+    <div class="period-value" id="banner-periodo">21 NOV 2025 → 21 NOV 2026</div>
+  </div>
+  <div class="period-pilots">
+    <div class="pilot-tag">Comandante: Lucio Verlingue</div>
+    <div class="pilot-tag">Copiloto: Davi Blanski</div>
+  </div>
+</div>
+
+<!-- LANÇAMENTOS -->
+<div id="page-lancamentos" class="page active">
+  <div class="stats-grid">
+    <div class="stat-card total">
+      <div class="stat-label">Total Aeronave</div>
+      <div class="stat-name total">PT-GMF · BE9L</div>
+      <div class="stat-hours" id="st-total">0:00</div>
+      <div class="stat-pct" id="st-sub">0 voos registrados</div>
+    </div>
+    <div class="stat-card jose">
+      <div class="stat-label">Operador</div>
+      <div class="stat-name jose">José Roberto</div>
+      <div class="stat-hours" id="st-h-jose">0:00</div>
+      <div class="stat-pct"><strong id="st-p-jose">0,0%</strong> do total</div>
+    </div>
+    <div class="stat-card silvana">
+      <div class="stat-label">Operador</div>
+      <div class="stat-name silvana">Silvana</div>
+      <div class="stat-hours" id="st-h-silvana">0:00</div>
+      <div class="stat-pct"><strong id="st-p-silvana">0,0%</strong> do total</div>
+    </div>
+    <div class="stat-card bruna">
+      <div class="stat-label">Operador</div>
+      <div class="stat-name bruna">Bruna</div>
+      <div class="stat-hours" id="st-h-bruna">0:00</div>
+      <div class="stat-pct"><strong id="st-p-bruna">0,0%</strong> do total</div>
+    </div>
+  </div>
+
+  <div class="pct-bar-section">
+    <div class="pct-bar-title">Distribuição de Uso — Período Atual</div>
+    <div class="pct-bar-track">
+      <div class="pct-bar-seg" id="bar-jose" style="background:var(--jose);width:0%"></div>
+      <div class="pct-bar-seg" id="bar-silvana" style="background:var(--silvana);width:0%"></div>
+      <div class="pct-bar-seg" id="bar-bruna" style="background:var(--bruna);width:0%"></div>
+      <div class="pct-bar-seg" id="bar-oficina" style="background:var(--oficina);width:0%"></div>
+    </div>
+    <div class="pct-bar-legend">
+      <div class="pct-legend-item"><div class="pct-legend-dot" style="background:var(--jose)"></div><strong>José Roberto</strong><span id="leg-jose">0:00 · 0,0%</span></div>
+      <div class="pct-legend-item"><div class="pct-legend-dot" style="background:var(--silvana)"></div><strong>Silvana</strong><span id="leg-silvana">0:00 · 0,0%</span></div>
+      <div class="pct-legend-item"><div class="pct-legend-dot" style="background:var(--bruna)"></div><strong>Bruna</strong><span id="leg-bruna">0:00 · 0,0%</span></div>
+      <div class="pct-legend-item"><div class="pct-legend-dot" style="background:var(--oficina)"></div><strong>Oficina</strong><span id="leg-oficina">0:00 · rateado ÷3</span></div>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <div class="form-header">
+      <div class="form-header-title">＋ Novo Lançamento de Voo</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="limparForm()">↺ Limpar</button>
+        <button class="btn btn-primary" onclick="salvarVoo()">✔ Salvar Voo</button>
+      </div>
+    </div>
+    <div class="form-body">
+      <div class="field-row">
+        <div class="field">
+          <label>Data do Voo</label>
+          <input type="date" id="f-data">
+        </div>
+        <div class="field" style="grid-column:span 3">
+          <label>Operador (Proprietário)</label>
+          <div class="op-select-group">
+            <button class="op-btn" id="op-jose" onclick="selecionarOp('jose')">José Roberto</button>
+            <button class="op-btn" id="op-silvana" onclick="selecionarOp('silvana')">Silvana</button>
+            <button class="op-btn" id="op-bruna" onclick="selecionarOp('bruna')">Bruna</button>
+            <button class="op-btn" id="op-oficina" onclick="selecionarOp('oficina')">🔧 Oficina</button>
+          </div>
+        </div>
+      </div>
+      <div class="legs-section">
+        <div class="legs-title">
+          Pernas de Voo
+          <button class="btn btn-ghost btn-sm" onclick="addLegInput()">+ Adicionar Perna</button>
+        </div>
+        <div class="legs-list" id="legs-list"></div>
+        <div class="add-leg-row" id="add-leg-row">
+          <div class="field">
+            <label>Origem</label>
+            <input type="text" id="nl-origem" placeholder="ex: Londrina, SBLO...">
+          </div>
+          <div class="field">
+            <label>Destino</label>
+            <input type="text" id="nl-destino" placeholder="ex: Fazenda, São Paulo...">
+          </div>
+          <div class="field">
+            <label>Duração (h:mm)</label>
+            <input type="text" id="nl-dur" placeholder="1:30" onkeydown="if(event.key==='Enter')confirmarLeg()">
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <button class="btn btn-primary btn-sm" onclick="confirmarLeg()">✔ OK</button>
+          </div>
+        </div>
+        <div style="margin-top:8px;font-size:.75rem;color:var(--muted);">
+          Total do dia: <span id="total-preview" style="color:var(--gold);font-weight:700;">0:00</span>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Observações / Notas</label>
+        <textarea id="f-obs" placeholder="Condições meteorológicas, passageiros, ocorrências..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-section" style="margin-bottom:0;">
+    <div class="table-topbar">
+      <div class="table-title">Histórico de Voos <span class="badge" id="badge-total">0 registros</span></div>
+      <div class="filter-row">
+        <input type="text" placeholder="🔍 Buscar..." oninput="filtrar(this.value)">
+        <select onchange="filtrarOp(this.value)">
+          <option value="">Todos os operadores</option>
+          <option value="jose">José Roberto</option>
+          <option value="silvana">Silvana</option>
+          <option value="bruna">Bruna</option>
+          <option value="oficina">🔧 Oficina</option>
+        </select>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Operador</th><th>Pernas de Voo</th><th>Total do Dia</th><th>Observações</th><th></th></tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="6"><div class="empty-state"><div class="empty-icon">✈</div><p>Conectando ao Firebase...</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- RELATÓRIO -->
+<div id="page-relatorio" class="page">
+  <div class="relatorio-header">
+    <div>
+      <h2>Relatório de Uso — PT-GMF BE9L</h2>
+      <p id="rel-sub">Período: 21/11/2025 a 21/11/2026 · Comandante: Lucio Verlingue · Copiloto: Davi Blanski</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-success" onclick="exportarExcel()">↓ Excel</button>
+      <button class="btn btn-gold" onclick="exportarPDF()">↓ PDF</button>
+    </div>
+  </div>
+  <div class="op-cards">
+    <div class="op-card jose">
+      <div class="op-card-name">José Roberto</div>
+      <div class="op-card-stat"><span class="lbl">Horas de Voo</span><span class="val" id="r-h-jose">0:00</span></div>
+      <div class="op-card-stat"><span class="lbl">Nº de Voos</span><span class="val" id="r-v-jose">0</span></div>
+      <div class="op-card-stat"><span class="lbl">Nº de Pernas</span><span class="val" id="r-l-jose">0</span></div>
+      <div class="op-card-stat"><span class="lbl">% de Uso</span><span class="val" style="color:var(--jose)" id="r-p-jose">0,0%</span></div>
+      <div class="op-card-pct"><div class="op-card-pct-fill" id="r-bar-jose" style="width:0%;background:var(--jose)"></div></div>
+    </div>
+    <div class="op-card silvana">
+      <div class="op-card-name">Silvana</div>
+      <div class="op-card-stat"><span class="lbl">Horas de Voo</span><span class="val" id="r-h-silvana">0:00</span></div>
+      <div class="op-card-stat"><span class="lbl">Nº de Voos</span><span class="val" id="r-v-silvana">0</span></div>
+      <div class="op-card-stat"><span class="lbl">Nº de Pernas</span><span class="val" id="r-l-silvana">0</span></div>
+      <div class="op-card-stat"><span class="lbl">% de Uso</span><span class="val" style="color:var(--silvana)" id="r-p-silvana">0,0%</span></div>
+      <div class="op-card-pct"><div class="op-card-pct-fill" id="r-bar-silvana" style="width:0%;background:var(--silvana)"></div></div>
+    </div>
+    <div class="op-card bruna">
+      <div class="op-card-name">Bruna</div>
+      <div class="op-card-stat"><span class="lbl">Horas de Voo</span><span class="val" id="r-h-bruna">0:00</span></div>
+      <div class="op-card-stat"><span class="lbl">Nº de Voos</span><span class="val" id="r-v-bruna">0</span></div>
+      <div class="op-card-stat"><span class="lbl">Nº de Pernas</span><span class="val" id="r-l-bruna">0</span></div>
+      <div class="op-card-stat"><span class="lbl">% de Uso</span><span class="val" style="color:var(--bruna)" id="r-p-bruna">0,0%</span></div>
+      <div class="op-card-pct"><div class="op-card-pct-fill" id="r-bar-bruna" style="width:0%;background:var(--bruna)"></div></div>
+    </div>
+  </div>
+  <div class="summary-table-wrap">
+    <table>
+      <thead><tr><th>Operador</th><th>Voos</th><th>Pernas</th><th>Horas de Voo</th><th>% de Uso</th></tr></thead>
+      <tbody id="r-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL NOVO CICLO -->
+<div class="modal-overlay" id="modal-ciclo" onclick="if(event.target===this)fecharModal()">
+  <div class="modal">
+    <div class="modal-step active" id="step-senha">
+      <div class="modal-title">⟳ Novo Ciclo de Manutenção</div>
+      <div class="modal-sub">Digite a senha para continuar.</div>
+      <div class="modal-field">
+        <label>Senha</label>
+        <input type="password" id="modal-senha" placeholder="••••••" onkeydown="if(event.key==='Enter')verificarSenha()">
+      </div>
+      <div class="modal-err" id="err-senha">Senha incorreta. Tente novamente.</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="verificarSenha()">Continuar →</button>
+      </div>
+    </div>
+    <div class="modal-step" id="step-datas">
+      <div class="modal-title">⟳ Definir Novo Ciclo</div>
+      <div class="modal-sub">Informe as datas do novo período. Os voos atuais serão apagados e a contagem reinicia do zero.</div>
+      <div class="modal-warn">⚠ Esta ação apaga todos os voos do ciclo atual. Exporte o Excel ou PDF antes de continuar.</div>
+      <div class="modal-field">
+        <label>Saída da manutenção (início do ciclo)</label>
+        <input type="date" id="modal-inicio">
+      </div>
+      <div class="modal-field">
+        <label>Próxima manutenção prevista (fim do ciclo)</label>
+        <input type="date" id="modal-fim">
+      </div>
+      <div class="modal-err" id="err-datas">Preencha as duas datas corretamente.</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+        <button class="btn btn-danger" onclick="confirmarNovoCiclo()">✔ Confirmar e Zerar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<footer>PT-GMF · Beechcraft BE9L King Air · Dados sincronizados via Firebase · Acesse de qualquer dispositivo</footer>
+
+<!-- FIREBASE SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBKSqXcQGZBjYdyVVffy_k2QoSubBejiT4",
+  authDomain: "ptgmf-24d1d.firebaseapp.com",
+  projectId: "ptgmf-24d1d",
+  storageBucket: "ptgmf-24d1d.firebasestorage.app",
+  messagingSenderId: "605731327099",
+  appId: "1:605731327099:web:4181b6b882ac6e4c4c66de"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const DOC = doc(db, 'ptgmf', 'dados');
+
+// Expose to window so legacy JS functions can call
+window._fbSalvar = async (dados) => {
+  await setDoc(DOC, dados);
+};
+
+// Real-time listener — atualiza tudo automaticamente
+onSnapshot(DOC, (snap) => {
+  const dot = document.getElementById('sync-dot');
+  const txt = document.getElementById('sync-text');
+  if (snap.exists()) {
+    const d = snap.data();
+    window.voos = (d.voos || []).slice().sort((a,b) => b.data.localeCompare(a.data));
+    if (d.ciclo) window.ciclo = d.ciclo;
+    dot.className = 'sync-dot ok';
+    const ago = d._ts ? (() => {
+      const s = Math.round((Date.now() - d._ts) / 1000);
+      return s < 60 ? 'agora mesmo' : `${Math.floor(s/60)}min atrás`;
+    })() : '';
+    txt.innerHTML = `<strong>Sincronizado</strong> — Firebase · ${ago}`;
+  } else {
+    // Documento ainda não existe — cria com dados padrão
+    window._fbSalvar({ voos: window.voos || [], ciclo: window.ciclo, _ts: Date.now() });
+    dot.className = 'sync-dot ok';
+    txt.innerHTML = '<strong>Conectado</strong> — Firebase · novo banco criado';
+  }
+  window.atualizarBanner && window.atualizarBanner();
+  window.renderAll && window.renderAll();
+}, (err) => {
+  document.getElementById('sync-dot').className = 'sync-dot err';
+  document.getElementById('sync-text').innerHTML = `<strong style="color:var(--red)">Erro de conexão</strong> — ${err.message}`;
+});
+</script>
+
+<script>
+// ── ESTADO GLOBAL ────────────────────────────────────────────────────────────
+window.voos = [];
+window.ciclo = { inicio: '2025-11-21', fim: '2026-11-21' };
+let legsTemp = [], opSelecionado = '', filtroTexto = '', filtroOp = '';
+const OPS = { jose:'José Roberto', silvana:'Silvana', bruna:'Bruna', oficina:'Oficina' };
+const OP_KEYS = ['jose','silvana','bruna','oficina'];
+
+// ── SALVAR NO FIREBASE ───────────────────────────────────────────────────────
+async function salvarFirebase() {
+  try {
+    await window._fbSalvar({ voos: window.voos, ciclo: window.ciclo, _ts: Date.now() });
+  } catch(e) {
+    toast('Erro ao salvar: ' + e.message, true);
+  }
+}
+
+// ── NAVEGAÇÃO ────────────────────────────────────────────────────────────────
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'relatorio') renderRelatorio();
+}
+
+// ── BANNER ───────────────────────────────────────────────────────────────────
+function fmtIso(iso) { const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
+function fmtIsoBanner(iso) {
+  const [y,m,d]=iso.split('-');
+  const M=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  return `${parseInt(d)} ${M[parseInt(m)-1]} ${y}`;
+}
+window.atualizarBanner = function() {
+  document.getElementById('banner-periodo').textContent = `${fmtIsoBanner(ciclo.inicio)} → ${fmtIsoBanner(ciclo.fim)}`;
+  document.getElementById('header-periodo').textContent = `${fmtIso(ciclo.inicio)} – ${fmtIso(ciclo.fim)}`;
+  const rs = document.getElementById('rel-sub');
+  if (rs) rs.textContent = `Período: ${fmtIso(ciclo.inicio)} a ${fmtIso(ciclo.fim)} · Comandante: Lucio Verlingue · Copiloto: Davi Blanski`;
+};
+
+// ── MODAL CICLO ──────────────────────────────────────────────────────────────
+function abrirNovoCiclo() {
+  document.getElementById('modal-senha').value='';
+  document.getElementById('err-senha').classList.remove('show');
+  document.getElementById('err-datas').classList.remove('show');
+  document.getElementById('modal-inicio').value='';
+  document.getElementById('modal-fim').value='';
+  document.getElementById('step-senha').classList.add('active');
+  document.getElementById('step-datas').classList.remove('active');
+  document.getElementById('modal-ciclo').classList.add('open');
+  setTimeout(()=>document.getElementById('modal-senha').focus(),100);
+}
+function fecharModal() { document.getElementById('modal-ciclo').classList.remove('open'); }
+function verificarSenha() {
+  if (document.getElementById('modal-senha').value !== 'ptgmf') {
+    document.getElementById('err-senha').classList.add('show');
+    document.getElementById('modal-senha').value='';
+    document.getElementById('modal-senha').focus();
+    return;
+  }
+  document.getElementById('err-senha').classList.remove('show');
+  document.getElementById('step-senha').classList.remove('active');
+  document.getElementById('step-datas').classList.add('active');
+  setTimeout(()=>document.getElementById('modal-inicio').focus(),100);
+}
+async function confirmarNovoCiclo() {
+  const ini = document.getElementById('modal-inicio').value;
+  const fim = document.getElementById('modal-fim').value;
+  if (!ini||!fim||fim<=ini) { document.getElementById('err-datas').classList.add('show'); return; }
+  window.ciclo = { inicio:ini, fim };
+  window.voos = [];
+  await salvarFirebase();
+  fecharModal();
+  atualizarBanner();
+  renderAll();
+  toast('Novo ciclo iniciado! ✈');
+}
+
+// ── OPERADOR ─────────────────────────────────────────────────────────────────
+function selecionarOp(op) {
+  opSelecionado = op;
+  OP_KEYS.forEach(o => {
+    document.getElementById('op-'+o).className = 'op-btn' + (o===op ? ' sel-'+o : '');
+  });
+}
+
+// ── PERNAS ───────────────────────────────────────────────────────────────────
+function addLegInput() {
+  document.getElementById('add-leg-row').style.display='grid';
+  document.getElementById('nl-origem').focus();
+}
+function confirmarLeg() {
+  const orig = document.getElementById('nl-origem').value.trim().toUpperCase();
+  const dest = document.getElementById('nl-destino').value.trim().toUpperCase();
+  const dur  = document.getElementById('nl-dur').value.trim();
+  if (!orig||!dest) { toast('Preencha origem e destino.',true); return; }
+  if (!/^\d+:[0-5]\d$/.test(dur)) { toast('Duração inválida. Use h:mm (ex: 1:30)',true); return; }
+  legsTemp.push({orig,dest,dur});
+  document.getElementById('nl-origem').value = dest;
+  document.getElementById('nl-destino').value = '';
+  document.getElementById('nl-dur').value = '';
+  renderLegsTemp();
+  document.getElementById('nl-destino').focus();
+}
+function removerLegTemp(i) { legsTemp.splice(i,1); renderLegsTemp(); }
+function renderLegsTemp() {
+  document.getElementById('legs-list').innerHTML = legsTemp.map((l,i) => `
+    <div class="leg-row">
+      <span class="leg-num">Perna ${i+1}</span>
+      <span class="leg-icao">${l.orig}</span>
+      <span class="leg-arrow">→</span>
+      <span class="leg-icao">${l.dest}</span>
+      <span class="leg-dur">${l.dur}</span>
+      <button class="leg-remove" onclick="removerLegTemp(${i})">✕</button>
+    </div>`).join('');
+  const tot = legsTemp.reduce((a,l) => a+h2m(l.dur), 0);
+  document.getElementById('total-preview').textContent = m2h(tot);
+}
+
+// ── SALVAR VOO ───────────────────────────────────────────────────────────────
+async function salvarVoo() {
+  const data = document.getElementById('f-data').value;
+  const obs  = document.getElementById('f-obs').value.trim();
+  if (!data) { toast('Informe a data.',true); return; }
+  if (!opSelecionado) { toast('Selecione o operador.',true); return; }
+  if (!legsTemp.length) { toast('Adicione pelo menos uma perna.',true); return; }
+  const totalMin = legsTemp.reduce((a,l) => a+h2m(l.dur), 0);
+  const voo = { id: Date.now(), data, op: opSelecionado, obs, legs: [...legsTemp], totalMin };
+  window.voos.push(voo);
+  window.voos.sort((a,b) => b.data.localeCompare(a.data));
+  legsTemp = [];
+  limparForm();
+  renderAll();
+  toast('Voo registrado! ✈');
+  await salvarFirebase();
+}
+
+function limparForm() {
+  opSelecionado = ''; legsTemp = [];
+  OP_KEYS.forEach(o => { document.getElementById('op-'+o).className='op-btn'; });
+  document.getElementById('f-obs').value='';
+  document.getElementById('nl-origem').value='';
+  document.getElementById('nl-destino').value='';
+  document.getElementById('nl-dur').value='';
+  renderLegsTemp();
+}
+
+async function removerVoo(id) {
+  if (!confirm('Remover este registro?')) return;
+  window.voos = window.voos.filter(v => v.id !== id);
+  renderAll();
+  toast('Registro removido.');
+  await salvarFirebase();
+}
+
+// ── FILTROS ───────────────────────────────────────────────────────────────────
+function filtrar(v) { filtroTexto=v.toLowerCase(); renderTabela(); }
+function filtrarOp(v) { filtroOp=v; renderTabela(); }
+function getFiltered() {
+  return window.voos.filter(v => {
+    if (filtroOp && v.op!==filtroOp) return false;
+    if (filtroTexto) {
+      const h = [fmtData(v.data),OPS[v.op],v.obs,...v.legs.map(l=>l.orig+' '+l.dest)].join(' ').toLowerCase();
+      if (!h.includes(filtroTexto)) return false;
+    }
+    return true;
+  });
+}
+
+// ── STATS ────────────────────────────────────────────────────────────────────
+function calcStats() {
+  const s = {jose:0,silvana:0,bruna:0,oficina:0,total:0,voos:{jose:0,silvana:0,bruna:0,oficina:0},legs:{jose:0,silvana:0,bruna:0,oficina:0}};
+  window.voos.forEach(v => {
+    s.total += v.totalMin;
+    if (v.op === 'oficina') {
+      const t = v.totalMin/3;
+      s.jose+=t; s.silvana+=t; s.bruna+=t; s.oficina+=v.totalMin;
+      s.voos.oficina++; s.legs.oficina+=v.legs.length;
+    } else {
+      s[v.op]+=v.totalMin; s.voos[v.op]++; s.legs[v.op]+=v.legs.length;
+    }
+  });
+  return s;
+}
+function pct(p,t) { return t===0?0:(p/t)*100; }
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+window.renderAll = function() { renderStats(); renderTabela(); };
+
+function renderStats() {
+  const s = calcStats();
+  document.getElementById('st-total').textContent = m2h(s.total);
+  document.getElementById('st-sub').textContent = window.voos.length+' voo'+(window.voos.length!==1?'s':'')+' registrado'+(window.voos.length!==1?'s':'');
+  ['jose','silvana','bruna'].forEach(op => {
+    const p = pct(s[op],s.total);
+    document.getElementById('st-h-'+op).textContent = m2h(Math.round(s[op]));
+    document.getElementById('st-p-'+op).textContent = fPct(p);
+    document.getElementById('bar-'+op).style.width = p+'%';
+    document.getElementById('leg-'+op).textContent = m2h(Math.round(s[op]))+' · '+fPct(p);
+  });
+  document.getElementById('bar-oficina').style.width = pct(s.oficina,s.total)+'%';
+  document.getElementById('leg-oficina').textContent = m2h(s.oficina)+' · rateado ÷3';
+}
+
+function renderTabela() {
+  const lista = getFiltered();
+  const tbody = document.getElementById('tbody');
+  document.getElementById('badge-total').textContent = lista.length+' registro'+(lista.length!==1?'s':'');
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">✈</div><p>${filtroTexto||filtroOp?'Nenhum voo encontrado com esses filtros.':'Nenhum voo registrado.<br>Preencha o formulário acima.'}</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map((v,idx) => {
+    const bg = idx%2===0 ? 'rgba(59,158,255,0.07)' : 'rgba(255,255,255,0.02)';
+    const legs = v.legs.map((l,i) => `<div class="leg-chip"><span style="color:var(--muted2);font-size:.68rem;">${i+1}.</span><span class="from">${l.orig}</span><span class="arr">→</span><span class="to">${l.dest}</span><span class="dur">${l.dur}</span></div>`).join('');
+    return `<tr style="background:${bg};border-top:2px solid rgba(30,48,80,0.9);">
+      <td style="font-weight:700;white-space:nowrap;">${fmtData(v.data)}</td>
+      <td><span class="op-pill ${v.op}">${OPS[v.op]}</span></td>
+      <td><div class="legs-cell">${legs}</div></td>
+      <td><span class="total-hours-cell">${m2h(v.totalMin)}</span></td>
+      <td><div class="obs-cell">${v.obs||'—'}</div></td>
+      <td><button class="btn-icon" onclick="removerVoo(${v.id})">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRelatorio() {
+  const s = calcStats();
+  ['jose','silvana','bruna'].forEach(op => {
+    const p = pct(s[op],s.total);
+    document.getElementById('r-h-'+op).textContent = m2h(Math.round(s[op]));
+    document.getElementById('r-v-'+op).textContent = s.voos[op];
+    document.getElementById('r-l-'+op).textContent = s.legs[op];
+    document.getElementById('r-p-'+op).textContent = fPct(p);
+    document.getElementById('r-bar-'+op).style.width = p+'%';
+  });
+  const rows = ['jose','silvana','bruna'].map(op => {
+    const p = pct(s[op],s.total);
+    return `<tr><td><span class="op-pill ${op}">${OPS[op]}</span></td><td>${s.voos[op]}</td><td>${s.legs[op]}</td><td><strong style="color:var(--gold);font-family:'Barlow Condensed',sans-serif;font-size:1rem;">${m2h(Math.round(s[op]))}</strong></td><td><strong>${fPct(p)}</strong></td></tr>`;
+  });
+  if (s.oficina>0) rows.push(`<tr style="opacity:.8;"><td><span class="op-pill oficina">🔧 Oficina</span></td><td>${s.voos.oficina}</td><td>${s.legs.oficina}</td><td><strong style="color:var(--oficina);font-family:'Barlow Condensed',sans-serif;font-size:1rem;">${m2h(s.oficina)}</strong></td><td style="font-size:.75rem;color:var(--muted);">rateado ÷3</td></tr>`);
+  rows.push(`<tr style="background:var(--bg3);border-top:2px solid var(--border2);"><td><strong>TOTAL</strong></td><td><strong>${window.voos.length}</strong></td><td><strong>${window.voos.reduce((a,v)=>a+v.legs.length,0)}</strong></td><td><strong style="color:var(--gold);font-family:'Barlow Condensed',sans-serif;font-size:1rem;">${m2h(s.total)}</strong></td><td><strong>100,0%</strong></td></tr>`);
+  document.getElementById('r-tbody').innerHTML = rows.join('');
+}
+
+// ── EXCEL ────────────────────────────────────────────────────────────────────
+function exportarExcel() {
+  if (!window.voos.length) { toast('Nenhum voo para exportar!',true); return; }
+  const wb = XLSX.utils.book_new(), rows = [];
+  [...window.voos].sort((a,b)=>a.data.localeCompare(b.data)).forEach(v => {
+    v.legs.forEach((l,i) => {
+      rows.push({'Data':fmtData(v.data),'Operador':OPS[v.op],'Perna':i+1,'Origem':l.orig,'Destino':l.dest,'Duração':l.dur,'Total do Dia':i===0?m2h(v.totalMin):'','Observações':i===0?(v.obs||''):''});
+    });
+  });
+  const ws1 = XLSX.utils.json_to_sheet(rows);
+  ws1['!cols'] = [{wch:12},{wch:18},{wch:7},{wch:24},{wch:24},{wch:12},{wch:12},{wch:40}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Diário de Bordo');
+  const s = calcStats();
+  const rel = [
+    {'A':'PT-GMF','B':'BE9L King Air','C':`${fmtIso(ciclo.inicio)} a ${fmtIso(ciclo.fim)}`},{},
+    {'A':'Operador','B':'Horas','C':'Voos','D':'Pernas','E':'%'}
+  ];
+  ['jose','silvana','bruna'].forEach(op => {
+    rel.push({'A':OPS[op],'B':m2h(Math.round(s[op])),'C':s.voos[op],'D':s.legs[op],'E':fPct(pct(s[op],s.total))});
+  });
+  if (s.oficina>0) rel.push({'A':'Oficina (rateado ÷3)','B':m2h(s.oficina),'C':s.voos.oficina,'D':s.legs.oficina,'E':'÷3'});
+  rel.push({'A':'TOTAL','B':m2h(s.total),'C':window.voos.length,'D':window.voos.reduce((a,v)=>a+v.legs.length,0),'E':'100,0%'});
+  const ws2 = XLSX.utils.json_to_sheet(rel,{skipHeader:true});
+  ws2['!cols'] = [{wch:22},{wch:12},{wch:10},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Relatório');
+  XLSX.writeFile(wb,`PT-GMF_Relatorio_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Excel exportado! 📊');
+}
+
+// ── PDF ──────────────────────────────────────────────────────────────────────
+function exportarPDF() {
+  if (!window.voos.length) { toast('Nenhum voo para exportar!',true); return; }
+  const s = calcStats(), hoje = new Date().toLocaleDateString('pt-BR');
+  let rows = '';
+  [...window.voos].sort((a,b)=>a.data.localeCompare(b.data)).forEach((v,vi) => {
+    const n=v.legs.length, bg=vi%2===0?'#EEF4FF':'#FFFFFF', bt='border-top:2px solid #8aafd4;';
+    v.legs.forEach((l,i) => {
+      const rs=n>1?` rowspan="${n}"`:'' , ib=i>0?'border-top:1px solid #cddcef;':bt;
+      const dtd=i===0?`<td${rs} style="vertical-align:middle;font-weight:700;white-space:nowrap;${bt}border-right:2px solid #b0c8e8;background:${bg};">${fmtData(v.data)}</td>`:'';
+      const otd=i===0?`<td${rs} style="vertical-align:middle;font-weight:700;${bt}border-right:2px solid #b0c8e8;background:${bg};">${OPS[v.op]}</td>`:'';
+      const ttd=i===0?`<td${rs} style="vertical-align:middle;font-weight:700;font-size:13px;text-align:center;color:#0D2040;${bt}border-left:2px solid #b0c8e8;background:${bg};">${m2h(v.totalMin)}</td>`:'';
+      const obtd=i===0?`<td${rs} style="vertical-align:middle;font-size:9.5px;color:#555;${bt}background:${bg};">${v.obs||'—'}</td>`:'';
+      rows+=`<tr>${dtd}${otd}<td style="text-align:center;font-weight:700;font-size:10px;color:#555;${ib}padding:6px;background:${bg};">${i+1}ª</td><td style="font-weight:600;font-size:11px;${ib}padding:6px 8px;background:${bg};">${l.orig}</td><td style="text-align:center;color:#3B9EFF;font-size:13px;${ib}padding:6px 4px;background:${bg};">→</td><td style="font-weight:600;font-size:11px;${ib}padding:6px 8px;background:${bg};">${l.dest}</td><td style="text-align:center;font-weight:700;font-size:11px;color:#b45309;${ib}padding:6px 8px;background:${bg};">${l.dur}</td>${ttd}${obtd}</tr>`;
+    });
+  });
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>PT-GMF</title><style>
+*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;font-size:11px;color:#1a2a3a;padding:22px;}
+.hdr{background:#0D2040;color:#fff;padding:16px 20px;border-radius:8px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.hdr h1{font-size:18px;font-weight:700;margin-bottom:4px;}.hdr p{font-size:9.5px;opacity:.75;line-height:1.7;}
+.tail{background:#3B9EFF;border-radius:6px;padding:8px 16px;text-align:center;}.tail .r{font-size:19px;font-weight:700;letter-spacing:3px;line-height:1;}.tail .m{font-size:8px;opacity:.85;margin-top:2px;text-transform:uppercase;letter-spacing:1px;}
+.sec{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:#5a7a9a;margin:16px 0 8px;font-weight:700;border-bottom:1px solid #dde;padding-bottom:4px;}
+.stats{display:flex;gap:8px;margin-bottom:16px;}.stat{flex:1;border:1.5px solid #dde;border-radius:7px;padding:10px 8px;background:#f9fbff;}
+.stat .l{font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:3px;}.stat .v{font-size:22px;font-weight:700;line-height:1;}.stat .s{font-size:9.5px;color:#666;margin-top:3px;}
+.stat .pb{height:4px;border-radius:2px;margin-top:7px;background:#e0eaf8;overflow:hidden;}.stat .pf{height:100%;border-radius:2px;}
+.total .v{color:#0D2040;}.jose .v{color:#1a70cc;}.silvana .v{color:#7e22ce;}.bruna .v{color:#b45309;}
+table{width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10.5px;}
+thead tr th{background:#0D2040;color:#fff;padding:8px 7px;font-size:8.5px;text-align:left;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;}
+tbody td{padding:5px 7px;vertical-align:middle;}
+.footer{text-align:center;font-size:8.5px;color:#aaa;margin-top:12px;border-top:1px solid #eee;padding-top:8px;}
+@media print{body{padding:10px;}tr{page-break-inside:avoid;}}
+</style></head><body>
+<div class="hdr"><div><h1>Relatório de Horas Voadas</h1>
+<p>Aeronave: PT-GMF · Beechcraft BE9L King Air<br>Período: ${fmtIso(ciclo.inicio)} a ${fmtIso(ciclo.fim)}<br>Comandante: Lucio Verlingue · Copiloto: Davi Blanski<br>Gerado em: ${hoje}</p></div>
+<div class="tail"><div class="r">PT-GMF</div><div class="m">BE9L King Air</div></div></div>
+<div class="sec">Resumo de Uso por Operador</div>
+<div class="stats">
+  <div class="stat total"><div class="l">Total da Aeronave</div><div class="v">${m2h(s.total)}</div><div class="s">${window.voos.length} voo${window.voos.length!==1?'s':''} · ${window.voos.reduce((a,v)=>a+v.legs.length,0)} pernas</div><div class="pb"><div class="pf" style="width:100%;background:#0D2040;"></div></div></div>
+  <div class="stat jose"><div class="l">José Roberto</div><div class="v">${m2h(Math.round(s.jose))}</div><div class="s">${fPct(pct(s.jose,s.total))} · ${s.voos.jose} voo${s.voos.jose!==1?'s':''}</div><div class="pb"><div class="pf" style="width:${pct(s.jose,s.total)}%;background:#1a70cc;"></div></div></div>
+  <div class="stat silvana"><div class="l">Silvana</div><div class="v">${m2h(Math.round(s.silvana))}</div><div class="s">${fPct(pct(s.silvana,s.total))} · ${s.voos.silvana} voo${s.voos.silvana!==1?'s':''}</div><div class="pb"><div class="pf" style="width:${pct(s.silvana,s.total)}%;background:#7e22ce;"></div></div></div>
+  <div class="stat bruna"><div class="l">Bruna</div><div class="v">${m2h(Math.round(s.bruna))}</div><div class="s">${fPct(pct(s.bruna,s.total))} · ${s.voos.bruna} voo${s.voos.bruna!==1?'s':''}</div><div class="pb"><div class="pf" style="width:${pct(s.bruna,s.total)}%;background:#b45309;"></div></div></div>
+</div>
+<div class="sec">Detalhamento Completo — Todas as Pernas de Voo</div>
+<table><thead><tr><th style="width:76px;">Data</th><th style="width:90px;">Operador</th><th style="width:34px;text-align:center;">Perna</th><th>Origem</th><th style="width:18px;"></th><th>Destino</th><th style="width:58px;text-align:center;">Duração</th><th style="width:62px;text-align:center;">Total Dia</th><th>Observações</th></tr></thead>
+<tbody>${rows}</tbody></table>
+<div class="footer">PT-GMF · Beechcraft BE9L King Air · Relatório de Horas Voadas · ${hoje}</div>
+</body></html>`;
+  const win = window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(()=>win.print(),600);
+  toast('PDF aberto para impressão! 📄');
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function h2m(s) { if (!s||!s.includes(':')) return 0; const [h,m]=s.split(':').map(Number); return h*60+m; }
+function m2h(min) { min=Math.round(min); return `${Math.floor(min/60)}:${String(min%60).padStart(2,'0')}`; }
+function fmtData(iso) { if (!iso) return '—'; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
+function fPct(p) { return p.toFixed(1).replace('.',',')+('%'); }
+function toast(msg,err=false) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+(err?'err':'ok')+' show';
+  clearTimeout(t._t); t._t=setTimeout(()=>{t.className='toast '+(err?'err':'ok');},3000);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+document.getElementById('f-data').value = new Date().toISOString().slice(0,10);
+atualizarBanner();
+</script>
+</body>
+</html>
